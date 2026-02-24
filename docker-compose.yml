@@ -1,0 +1,12 @@
+services:
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - DATA_PERFUME_DIR=/app/data
+      - DATA_ORGAN_DIR=/app/data
+    volumes:
+      - ./data:/app/data:ro
