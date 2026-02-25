@@ -1,0 +1,19 @@
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.eggs/
+dist/
+build/
+*.parquet.tmp
+# Архивы
+*.zip
+*.rar
+*.tar
+*.tar.gz
+*.tgz
+*.gz
+*.7z
+__MACOSX/
+analytics_report.md

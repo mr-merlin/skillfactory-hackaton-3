@@ -1,0 +1,70 @@
+{
+  "session_id": 1,
+  "latency_ms": 13.78,
+  "recommendations": [
+    {
+      "perfume_id": 3575,
+      "score": 0.9912,
+      "brand": "Byredo",
+      "name": "Gypsy Water Byredo для мужчин и женщин",
+      "all_votes": 1039,
+      "explanation": {
+        "сандал": 0.3307,
+        "ваниль": 0.2614,
+        "амбра": 0.2179,
+        "бергамот": 0.1812
+      }
+    },
+    {
+      "perfume_id": 4742,
+      "score": 0.9837,
+      "brand": "Estée Lauder",
+      "name": "Private Collection Amber Ylang Ylang Estée Lauder для женщин",
+      "all_votes": 520,
+      "explanation": {
+        "сандал": 0.3074,
+        "ваниль": 0.2765,
+        "амбра": 0.2652,
+        "бергамот": 0.1346
+      }
+    },
+    {
+      "perfume_id": 12185,
+      "score": 0.9809,
+      "brand": "Avon",
+      "name": "Today Tomorrow Always Romantic Voyage Avon для женщин",
+      "all_votes": 185,
+      "explanation": {
+        "сандал": 0.3023,
+        "ваниль": 0.2986,
+        "амбра": 0.2016,
+        "бергамот": 0.1785
+      }
+    },
+    {
+      "perfume_id": 17528,
+      "score": 0.9807,
+      "brand": "Avon",
+      "name": "Infinite Seduction for Her Avon для женщин",
+      "all_votes": 124,
+      "explanation": {
+        "сандал": 0.2986,
+        "ваниль": 0.2774,
+        "амбра": 0.2122,
+        "бергамот": 0.1925
+      }
+    },
+    {
+      "perfume_id": 613,
+      "score": 0.9198,
+      "brand": "Chanel",
+      "name": "Egoiste Chanel для мужчин",
+      "all_votes": 1233,
+      "explanation": {
+        "сандал": 0.3849,
+        "ваниль": 0.2838,
+        "амбра": 0.2512
+      }
+    }
+  ]
+}

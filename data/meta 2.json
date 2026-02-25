@@ -1,0 +1,13 @@
+{
+  "db": "senslab_aroma",
+  "host": "10.10.0.17",
+  "port": 3306,
+  "dataset_size": "lite",
+  "lite_perfumes": 5000,
+  "lite_strategy": "topvotes",
+  "perfumes_rows": 5000,
+  "notes_rows": 39693,
+  "comments_mode": "agg",
+  "notes_min_votes": 0,
+  "generated_at_utc": "2026-02-17T20:20:47Z"
+}

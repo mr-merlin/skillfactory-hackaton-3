@@ -1,0 +1,81 @@
+{
+  "model_version": "1.0.0",
+  "created_at": "2025-02-24",
+  "task": "Рекомендация парфюма по сессии парфюмерного органа",
+  "algorithm": "cosine_similarity",
+  "description": "Строим нотный профиль пользователя из рецепта (канал → арома → нота) и дополняем нажатиями с темпоральным затуханием. Подбираем SKU косинусом в пространстве 12 органических нот.",
+
+  "hyperparameters": {
+    "alpha": 0.7,
+    "recipe_weight": 0.7,
+    "presses_weight": 0.3,
+    "decay_lambda": 0.001,
+    "note_space": "organ_12",
+    "note_space_size": 12,
+    "sku_weight": "log1p(allVotes)"
+  },
+
+  "note_space": {
+    "type": "organ_restricted",
+    "description": "12 нот, соответствующих 6 каналам × 2 ароматы. Модель и каталог говорят на одном языке. Расширение до 827 нот ухудшает Hit@10 с 8.3% до 3.3%."
+    "size": 12
+  },
+
+  "data": {
+    "train_fraction": 0.8,
+    "test_fraction": 0.2,
+    "random_seed": 42,
+    "sessions_total": "~600 (с валидным target_perfume_id)",
+    "sku_catalog_size": 4521
+  },
+
+  "metrics_test_set": {
+    "Hit@5": 0.0579,
+    "Hit@10": 0.0826,
+    "MRR": 0.0316,
+    "NDCG@10": 0.0436,
+    "Coverage": 0.1762,
+    "n_test_sessions": 121,
+    "note": "Абсолютные значения невысокие из-за синтетики: target не всегда содержит ноты органа."
+  },
+
+  "baselines": {
+    "B1_TopPopular": {
+      "description": "Рейтинг по allVotes, без персонализации",
+      "Hit@10": 0.0083
+    },
+    "B2_NoteOverlap": {
+      "description": "Ненормированное скалярное произведение профиля и матрицы SKU",
+      "Hit@10": 0.0248
+    },
+    "B3_SingleSignal": {
+      "description": "Ранкинг по наиболее активному каналу",
+      "Hit@10": 0.0331
+    }
+  },
+
+  "api": {
+    "endpoints": [
+      "POST /recommend/session",
+      "POST /recommend/recipe",
+      "GET /session/{session_id}/info",
+      "GET /health"
+    ],
+    "latency_avg_ms": 14,
+    "latency_p95_ms": 25
+  },
+
+  "limitations": [
+    "Метрики низкие по абсолютному значению из-за синтетической связи target_perfume_id с рецептом — target может не иметь ни одной из 12 нот органа.",
+    "Каталог содержит 479 дублирующихся perfume_id (дедуплицируется по max(allVotes)).",
+    "Модель не обучается — это item-profile matching без ML-оптимизации."
+  ],
+
+  "artifacts": [
+    "src/models.py:CosineRecommender",
+    "src/features.py:build_user_profile",
+    "src/data_loader.py:build_note_index",
+    "evaluate.py",
+    "sample_output.json"
+  ]
+}
