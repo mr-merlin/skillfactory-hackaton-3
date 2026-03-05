@@ -26,4 +26,4 @@ backend/models/*.pkl
 *.log
 
 # эксперименты
-backend/experiment_*.py
+backend/experiment_*.pybackend/experiment_*.py
