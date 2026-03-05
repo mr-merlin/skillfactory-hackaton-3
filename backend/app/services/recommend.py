@@ -12,6 +12,7 @@ from ..ranking.profile.build_profile import (
     recipe_string_to_user_vector,
     _build_channel_to_aromas,
 )
+from ..ranking.normalize import build_synonym_map
 from ..ranking.scoring.score import build_sku_vectors, build_sku_matrix, score_skus, score_skus_with_explanation
 
 logger = logging.getLogger(__name__)
@@ -29,6 +30,9 @@ class RecommendService:
         self._popularity = None
         self._nn_scorer = None
         self._gbm_scorer = None
+        self._cross_encoder_scorer = None
+        self._hybrid_gbm_scorer = None
+        self._knn_gbm_scorer = None
 
     def warmup(self):
         if self._loader is not None:
@@ -39,9 +43,13 @@ class RecommendService:
             organ_dir=settings.data_organ_dir if settings.data_organ_dir.exists() else None,
         )
         perfume_notes = self._loader.load_perfume_notes()
-        self._perfume_vectors, self._note_to_idx, self._idx_to_note = build_sku_vectors(perfume_notes)
+        catalog_notes = perfume_notes["note"].astype(str).str.strip().str.lower().unique().tolist()
+        syn_map = build_synonym_map(catalog_notes)
+        self._perfume_vectors, self._note_to_idx, self._idx_to_note = build_sku_vectors(perfume_notes, synonym_map=syn_map)
         self._sku_matrix, self._sku_ids = build_sku_matrix(self._perfume_vectors)
         self._channel_to_aromas = _build_channel_to_aromas(self._loader)
+
+        raw_pv, raw_nti, raw_itn = build_sku_vectors(perfume_notes)
 
         perfumes = self._loader.load_perfumes()
         if "allVotes" in perfumes.columns:
@@ -61,12 +69,63 @@ class RecommendService:
         gbm_path = models_dir / "gbm_ranker.pkl"
         if gbm_path.exists():
             try:
+                import pickle
                 from ..ranking.gbm.ranker import GBMScorer
-                self._gbm_scorer = GBMScorer(gbm_path, self._note_to_idx, self._idx_to_note,
-                                             self._perfume_vectors, self._popularity)
+                sku_meta = None
+                meta_path = models_dir / "sku_meta.pkl"
+                if meta_path.exists():
+                    with open(meta_path, "rb") as f:
+                        sku_meta = pickle.load(f)
+                self._gbm_scorer = GBMScorer(gbm_path, raw_nti, raw_itn, raw_pv, self._popularity,
+                                             norm_perfume_vectors=self._perfume_vectors,
+                                             norm_note_to_idx=self._note_to_idx,
+                                             sku_meta=sku_meta)
                 logger.info("GBM model loaded")
             except Exception as exc:
                 logger.warning("Cannot load GBM model: %s", exc)
+
+        # Cross-Encoder
+        ce_path = models_dir / "cross_encoder_best.pt"
+        if ce_path.exists():
+            try:
+                from ..ranking.nn.cross_encoder import CrossEncoderScorer
+                self._cross_encoder_scorer = CrossEncoderScorer(
+                    ce_path, raw_nti, raw_pv, sku_meta=sku_meta)
+                logger.info("Cross-Encoder model loaded")
+            except Exception as exc:
+                logger.warning("Cannot load Cross-Encoder model: %s", exc)
+
+        # Hybrid GBM
+        hybrid_gbm_path = models_dir / "hybrid_gbm_ranker.pkl"
+        hybrid_tt_path = models_dir / "synthetic_two_tower.pt"
+        if hybrid_gbm_path.exists() and hybrid_tt_path.exists():
+            try:
+                from ..ranking.gbm.hybrid_scorer import HybridGBMScorer
+                self._hybrid_gbm_scorer = HybridGBMScorer(
+                    hybrid_gbm_path, hybrid_tt_path, raw_nti, raw_itn, raw_pv,
+                    self._popularity,
+                    norm_perfume_vectors=self._perfume_vectors,
+                    norm_note_to_idx=self._note_to_idx,
+                    sku_meta=sku_meta)
+                logger.info("Hybrid GBM model loaded")
+            except Exception as exc:
+                logger.warning("Cannot load Hybrid GBM model: %s", exc)
+
+        # kNN-augmented GBM (best model: 15.0% Hit@10)
+        knn_gbm_path = models_dir / "knn_gbm_ranker.pkl"
+        knn_data_path = models_dir / "knn_data.pkl"
+        if knn_gbm_path.exists() and knn_data_path.exists():
+            try:
+                from ..ranking.gbm.knn_scorer import KnnGBMScorer
+                self._knn_gbm_scorer = KnnGBMScorer(
+                    knn_gbm_path, knn_data_path, raw_nti, raw_itn, raw_pv,
+                    self._popularity,
+                    norm_perfume_vectors=self._perfume_vectors,
+                    norm_note_to_idx=self._note_to_idx,
+                    sku_meta=sku_meta)
+                logger.info("kNN-GBM model loaded")
+            except Exception as exc:
+                logger.warning("Cannot load kNN-GBM model: %s", exc)
 
     def recommend_by_session(self, session_id: int, top_n: int = 10, with_explanation: bool = True, method: str = "cosine"):
         self.warmup()
@@ -113,6 +172,27 @@ class RecommendService:
             ids = [r[0] for r in recs]
             scores = [r[1] for r in recs]
             return (ids, scores, [[] for _ in ids]) if with_explanation else (ids, scores, None)
+
+        if method == "cross_encoder" and self._cross_encoder_scorer is not None:
+            recs = self._cross_encoder_scorer.score(user_vec, top_n=top_n)
+            ids = [r[0] for r in recs]
+            scores = [r[1] for r in recs]
+            return (ids, scores, [[] for _ in ids]) if with_explanation else (ids, scores, None)
+
+        if method == "hybrid_gbm" and self._hybrid_gbm_scorer is not None:
+            recs = self._hybrid_gbm_scorer.score(user_vec, top_n=top_n)
+            ids = [r[0] for r in recs]
+            scores = [r[1] for r in recs]
+            return (ids, scores, [[] for _ in ids]) if with_explanation else (ids, scores, None)
+
+        if method == "knn_gbm" and self._knn_gbm_scorer is not None:
+            recs = self._knn_gbm_scorer.score(user_vec, top_n=top_n, explain=with_explanation)
+            ids = [r[0] for r in recs]
+            scores = [r[1] for r in recs]
+            if with_explanation:
+                explanations = [r[2] if len(r) > 2 else [] for r in recs]
+                return ids, scores, explanations
+            return ids, scores, None
 
         kwargs = dict(
             perfume_vectors=self._perfume_vectors,

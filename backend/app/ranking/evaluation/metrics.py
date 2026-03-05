@@ -38,6 +38,64 @@ def coverage(all_recommended_ids: list[int], catalog_size: int) -> float:
     return len(set(all_recommended_ids)) / catalog_size
 
 
+def note_similarity_at_k(
+    user_vec: dict[str, float],
+    predicted_ids: list[int],
+    perfume_vectors: dict[int, np.ndarray],
+    note_to_idx: dict[str, int],
+    k: int,
+) -> float:
+    top = predicted_ids[:k]
+    if not top or not user_vec:
+        return 0.0
+    u = np.zeros(len(note_to_idx), dtype=np.float64)
+    for note, val in user_vec.items():
+        idx = note_to_idx.get(note.strip().lower())
+        if idx is not None:
+            u[idx] = val
+    u_norm = np.linalg.norm(u)
+    if u_norm == 0:
+        return 0.0
+    u = u / u_norm
+    sims = []
+    for pid in top:
+        v = perfume_vectors.get(pid)
+        if v is None:
+            continue
+        v_norm = np.linalg.norm(v)
+        if v_norm > 0:
+            sims.append(float(np.dot(u, v / v_norm)))
+    return np.mean(sims) if sims else 0.0
+
+
+def weighted_jaccard_at_k(
+    user_vec: dict[str, float],
+    predicted_ids: list[int],
+    perfume_vectors: dict[int, np.ndarray],
+    note_to_idx: dict[str, int],
+    k: int,
+) -> float:
+    top = predicted_ids[:k]
+    if not top or not user_vec:
+        return 0.0
+    u = np.zeros(len(note_to_idx), dtype=np.float64)
+    for note, val in user_vec.items():
+        idx = note_to_idx.get(note.strip().lower())
+        if idx is not None:
+            u[idx] = val
+    if np.all(u == 0):
+        return 0.0
+    scores = []
+    for pid in top:
+        v = perfume_vectors.get(pid)
+        if v is None:
+            continue
+        mins = np.minimum(u, v).sum()
+        maxs = np.maximum(u, v).sum()
+        scores.append(mins / maxs if maxs > 0 else 0.0)
+    return float(np.mean(scores)) if scores else 0.0
+
+
 def diversity_intra_list(predicted_ids: list[int], perfume_vectors: dict, note_to_idx: dict) -> float:
     if len(predicted_ids) < 2:
         return 0.0

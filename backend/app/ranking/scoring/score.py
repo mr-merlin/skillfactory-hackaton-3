@@ -7,8 +7,11 @@ import pandas as pd
 def build_sku_vectors(
     perfume_notes: pd.DataFrame,
     normalize: str = "log1p",
+    synonym_map: dict[str, str] | None = None,
 ) -> tuple[dict[int, np.ndarray], dict[str, int], list[str]]:
     notes_ser = perfume_notes["note"].astype(str).str.strip().str.lower()
+    if synonym_map:
+        notes_ser = notes_ser.map(lambda n: synonym_map.get(n, n))
     perfume_notes = perfume_notes.assign(note_norm=notes_ser)
     agg = perfume_notes.groupby(["perfume_id", "note_norm"], as_index=False)["votes"].sum()
     pivot = agg.pivot_table(index="perfume_id", columns="note_norm", values="votes", fill_value=0, aggfunc="sum")

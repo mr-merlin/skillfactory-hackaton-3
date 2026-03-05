@@ -13,7 +13,9 @@ sys.path.insert(0, str(Path(__file__).parent))
 from app.core.config import get_settings
 from app.ranking.data import DataLoader
 from app.ranking.profile.build_profile import session_to_user_vector
+from app.ranking.normalize import build_synonym_map
 from app.ranking.scoring.score import build_sku_vectors
+from app.ranking.synthetic import generate_synthetic_pairs
 from app.ranking.nn.two_tower import TwoTowerModel
 
 
@@ -90,10 +92,26 @@ def train():
     )
 
     perfume_notes = loader.load_perfume_notes()
-    perfume_vectors, note_to_idx, _ = build_sku_vectors(perfume_notes)
+    catalog_notes = perfume_notes["note"].astype(str).str.strip().str.lower().unique().tolist()
+    syn_map = build_synonym_map(catalog_notes)
+    perfume_vectors, note_to_idx, _ = build_sku_vectors(perfume_notes, synonym_map=syn_map)
+    print(f"Нот после нормализации: {len(note_to_idx)} (синонимов: {len(syn_map)})")
 
     users, skus = build_pairs(loader, note_to_idx, perfume_vectors)
-    print(f"Всего пар: {len(users)}")
+    print(f"Реальных пар: {len(users)}")
+
+    dim = len(note_to_idx)
+    syn_pairs = generate_synthetic_pairs(perfume_vectors, note_to_idx, n_augments=3, seed=42)
+    for uv, pid in syn_pairs:
+        u = np.zeros(dim, dtype=np.float32)
+        for note, val in uv.items():
+            i = note_to_idx.get(note.strip().lower())
+            if i is not None:
+                u[i] = val
+        if np.any(u > 0):
+            users.append(u)
+            skus.append(perfume_vectors[pid].astype(np.float32))
+    print(f"Всего пар (реальные + синтетические): {len(users)}")
 
     n_val = max(1, int(len(users) * 0.2))
     idx = list(range(len(users)))

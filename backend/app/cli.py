@@ -10,7 +10,7 @@ def main():
     rec.add_argument("--session-id", type=int, default=None)
     rec.add_argument("--recipe", type=str, default=None)
     rec.add_argument("--top-n", type=int, default=10)
-    rec.add_argument("--method", type=str, default="cosine", choices=["cosine", "nn", "gbm"])
+    rec.add_argument("--method", type=str, default="cosine", choices=["cosine", "nn", "gbm", "knn_gbm"])
     rec.add_argument("--json", action="store_true")
 
     args = parser.parse_args()

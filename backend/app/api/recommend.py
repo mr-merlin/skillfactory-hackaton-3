@@ -25,8 +25,12 @@ def recommend(req: RecommendRequest, svc: RecommendService = Depends(get_service
 
     items = None
     if explanations:
-        items = [
-            RecommendItem(perfume_id=pid, score=sc, explanation=exp)
-            for pid, sc, exp in zip(ids, scores, explanations)
-        ]
+        items = []
+        for pid, sc, exp in zip(ids, scores, explanations):
+            reason = None
+            if exp:
+                top_notes = [e["note"] for e in exp[:3] if e.get("contribution", 0) > 0]
+                if top_notes:
+                    reason = "Потому что вам нравится " + ", ".join(top_notes)
+            items.append(RecommendItem(perfume_id=pid, score=sc, reason=reason, explanation=exp))
     return RecommendResponse(perfume_ids=ids, scores=scores, items=items)

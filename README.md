@@ -1,6 +1,6 @@
 # Помощник выбора на полке (Shelf Helper)
 
-Прототип рекомендаций по данным «Парфюмерного органа»: сессия или рецепт → Top-N SKU. Методы: `cosine`, `nn`, `gbm`.
+Прототип рекомендаций по данным «Парфюмерного органа»: сессия или рецепт → Top-N SKU. Методы: `cosine`, `nn`, `gbm`, `knn_gbm`.
 
 ---
 
@@ -46,14 +46,17 @@ cd backend
 # по рецепту (cosine по умолчанию)
 .venv/bin/python -m app.cli recommend --recipe "0:49,1:80,2:50,3:40,4:63,5:50" --top-n 10
 
-# по сессии, метод gbm
+# по сессии, метод knn_gbm (лучшая модель)
+.venv/bin/python -m app.cli recommend --session-id 1 --method knn_gbm --top-n 10
+
+# метод gbm (базовый LambdaRank)
 .venv/bin/python -m app.cli recommend --session-id 1 --method gbm --top-n 10
 
 # вывод JSON
 .venv/bin/python -m app.cli recommend --recipe "0:49,1:80,2:50,3:40,4:63,5:50" --method nn --json
 ```
 
-`--method`: `cosine` | `nn` | `gbm`.
+`--method`: `cosine` | `nn` | `gbm` | `knn_gbm`.
 
 ---
 
@@ -70,7 +73,7 @@ cd backend
 ```bash
 curl -X POST http://localhost:8000/api/recommend \
   -H "Content-Type: application/json" \
-  -d '{"recipe": "0:49,1:80,2:50,3:40,4:63,5:50", "top_n": 10, "method": "gbm"}'
+  -d '{"recipe": "0:49,1:80,2:50,3:40,4:63,5:50", "top_n": 10, "method": "knn_gbm"}'
 ```
 
 ---
@@ -81,8 +84,9 @@ curl -X POST http://localhost:8000/api/recommend \
 
 ```bash
 cd backend
-.venv/bin/python train_gbm.py      # ~10 сек
-.venv/bin/python train_two_tower.py # ~1 мин на CPU
+.venv/bin/python train_two_tower.py   # two-tower, ~1 мин на CPU
+.venv/bin/python train_gbm.py         # базовый GBM LambdaRank, ~10 сек
+.venv/bin/python train_knn_gbm.py     # kNN-GBM (лучшая модель), ~5 мин
 ```
 
 Чекпоинты сохраняются в `backend/models/`.
@@ -116,7 +120,7 @@ docker-compose up --build
 backend/
   app/           — API, CLI, сервис рекомендаций, ranking (data, profile, scoring, baseline, evaluation, nn, gbm)
   models/        — обученные модели (.pt, .pkl), не в git
-  train_*.py     — обучение GBM и two-tower
+  train_*.py     — обучение: two-tower, GBM, kNN-GBM
   run_*.py       — оценка, аналитика
 docs/            — PRESENTATION.md, модель и ограничения
 ```
