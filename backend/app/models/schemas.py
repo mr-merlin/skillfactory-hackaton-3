@@ -18,6 +18,8 @@ class RecommendRequest(BaseModel):
 class RecommendItem(BaseModel):
     perfume_id: int
     score: float
+    name: Optional[str] = None
+    brand: Optional[str] = None
     reason: Optional[str] = None
     explanation: Optional[list[dict]] = None
 

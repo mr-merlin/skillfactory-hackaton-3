@@ -23,14 +23,15 @@ def recommend(req: RecommendRequest, svc: RecommendService = Depends(get_service
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-    items = None
-    if explanations:
-        items = []
-        for pid, sc, exp in zip(ids, scores, explanations):
-            reason = None
-            if exp:
-                top_notes = [e["note"] for e in exp[:3] if e.get("contribution", 0) > 0]
-                if top_notes:
-                    reason = "Потому что вам нравится " + ", ".join(top_notes)
-            items.append(RecommendItem(perfume_id=pid, score=sc, reason=reason, explanation=exp))
+    items = []
+    for i, pid in enumerate(ids):
+        exp = explanations[i] if explanations and i < len(explanations) else []
+        reason = None
+        if exp:
+            top_notes = [e["note"] for e in exp[:3] if e.get("contribution", 0) > 0]
+            if top_notes:
+                reason = "Потому что вам нравится " + ", ".join(top_notes)
+        name, brand = svc.get_perfume_name_brand(pid)
+        sc = scores[i] if i < len(scores) else 0.0
+        items.append(RecommendItem(perfume_id=pid, score=sc, name=name or None, brand=brand or None, reason=reason, explanation=exp if exp else None))
     return RecommendResponse(perfume_ids=ids, scores=scores, items=items)

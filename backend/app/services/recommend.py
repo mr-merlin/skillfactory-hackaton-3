@@ -55,6 +55,12 @@ class RecommendService:
         if "allVotes" in perfumes.columns:
             self._popularity = perfumes.set_index("perfume_id")["allVotes"].to_dict()
 
+        self._perfume_names: dict[int, tuple[str, str]] = {}
+        if "brand" in perfumes.columns and "name" in perfumes.columns:
+            for _, row in perfumes.drop_duplicates(subset=["perfume_id"]).iterrows():
+                pid = int(row["perfume_id"])
+                self._perfume_names[pid] = (str(row["name"]).strip() if pd.notna(row["name"]) else "", str(row["brand"]).strip() if pd.notna(row["brand"]) else "")
+
         models_dir = Path(settings.project_root) / "backend" / "models"
 
         nn_path = models_dir / "two_tower_best.pt"
@@ -126,6 +132,10 @@ class RecommendService:
                 logger.info("kNN-GBM model loaded")
             except Exception as exc:
                 logger.warning("Cannot load kNN-GBM model: %s", exc)
+
+    def get_perfume_name_brand(self, perfume_id: int) -> tuple[str, str]:
+        """Return (name, brand) for perfume_id; empty strings if unknown."""
+        return self._perfume_names.get(perfume_id, ("", "")) if self._perfume_names else ("", "")
 
     def recommend_by_session(self, session_id: int, top_n: int = 10, with_explanation: bool = True, method: str = "cosine"):
         self.warmup()
